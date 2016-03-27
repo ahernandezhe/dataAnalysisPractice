@@ -1,0 +1,244 @@
+---
+title: "PracticaAnalisisDatos"
+author: "Alvaro Hernandez"
+date: "16 de marzo de 2016"
+output: html_document
+---
+
+#ANALISIS DE DATOS R
+
+#Descargando y cargando archivos en dataframes
+```{r}
+
+
+fileURL <- "https://archive.ics.uci.edu/ml/machine-learning-databases/00320/student.zip"
+setwd("C:/Users/Usuario/Desktop/Experto BigData/Practicas/AnalisisDatosR")
+getwd()
+# download.file(fileURL,destfile="./datosAlumnos.zip")
+
+list.files("./datosEstudiantes")
+
+library(knitr)
+studentMat <- read.table("./datosEstudiantes/student-mat.csv", 
+                         row.names=NULL, sep=";", header=TRUE)
+
+studentPor <- read.table("./datosEstudiantes/student-por.csv", 
+                         row.names=NULL, sep=";", header=TRUE)
+class(studentMat)
+
+class(studentPor)
+```
+#Preparar los datos
+
+##Modificando los headers de los dos datasets
+```{r}
+
+#Cambiando los headers del dataset StudenPor a minusculas
+names(studentMat)
+names(studentMat) <- tolower(names(studentMat))
+names(studentMat)
+
+#Cambiando los headers del dataset studentPor a minusculas
+names(studentPor)
+names(studentPor) <- tolower(names(studentPor))
+names(studentPor)
+
+#Quitando _ de la columna MJOB
+length(grep("_",studentMat$mjob))
+length(grep("_",studentPor$mjob))
+
+#Sustituimos los _ por espacios con gsub
+studentMat$mjob <- gsub("_"," ",studentMat$mjob)
+studentPor$mjob <- gsub("_"," ",studentPor$mjob)
+
+#Numero de _ en la columna mjob de los dos datasets
+length(grep("_",studentMat$mjob))
+length(grep("_",studentPor$mjob))
+
+
+#Quitando _ de la columna FJOB
+length(grep("_",studentMat$fjob))
+length(grep("_",studentPor$fjob))
+
+#Sustituimos los _ por espacios con gsub
+studentMat$fjob <- gsub("_"," ",studentMat$fjob)
+studentPor$fjob <- gsub("_"," ",studentPor$fjob)
+
+#Numero de _ en la columna fjob de los dos datasets
+length(grep("_",studentMat$fjob))
+length(grep("_",studentPor$fjob))
+```
+
+
+##Creando un nuevo dataFrame a partir de los anteriores y ordenandolo por
+#diferentes campos para ver mejor los datos
+```{r}
+#Hacemos un nuevo dataFrame con los datos de los otros dos siempre que coincidan los campos 
+#"school","sex","age","address","famsize","pstatus","medu","fedu","mjob","fjob","reason","nursery","internet"
+#a los que no sean iguales les aniadimos los sufijos mat y por segun corresponda
+studentMatPor <- merge(studentMat,studentPor,
+                      by=c("school","sex","age","address","famsize","pstatus",
+                           "medu","fedu","mjob","fjob","reason","nursery","internet"),
+                      all=FALSE, suffixes=c("mat","por"))
+
+kable(studentMatPor[1:10,1:7])
+dim(studentMatPor)[1]
+
+#Vemos los encabezados de studentMatPor
+names(studentMatPor)
+
+
+#y lo ordenamos por sexo, edad, tamaño de familia
+studentMatPor <- studentMatPor
+
+#indicamos la variable por la cual ordenar famsize ya que lo ordenaba por
+#GT3 como el valor menor al no haberselo indicado
+studentMatPor$famsize <- relevel(studentMatPor$famsize,ref="LE3")
+
+studentMatPor <- studentMatPor[order(
+        (studentMatPor[,"sex"]), (studentMatPor[,"age"]), (studentMatPor[,"famsize"])
+                                     ),
+                               ]
+#Podemos ver como queda ordenado
+kable(studentMatPor[1:10,1:7])
+```
+
+##Utilizando cast sobre los dataframes para explorar los datos
+```{r}
+library(reshape)  
+
+#media de nota final por trabajo del padre y de la madre
+jobG3 <- cast(studentMat, mjob~fjob, mean, value=c("g3"))
+jobG3
+
+#tiempo libre medio por edad y colegio
+ftAgeSchool <- cast(studentMat, age~school, mean, value=c("freetime"))
+ftAgeSchool
+```
+
+#Transformacion de los datos
+##Creando variables categoricas
+```{r}
+#con cut2 creamos una variable categorica para las notas finales
+#en matematicas y portugues de el dataframe studentMatPor
+#dividimos las notas en intervalos 0-10 10-17 17-valor maximo de la nota.
+maxg3mat = max(studentMatPor$g3mat)
+maxg3mat
+
+maxg3por = max(studentMatPor$g3por)
+maxg3por
+
+library(Hmisc)
+
+notaG3Mat <-cut2(studentMatPor$g3mat, c(10,17,maxg3mat))
+
+notaG3Por <-cut2(studentMatPor$g3por, c(10,17,maxg3por))
+
+#con levels cambiamos los nombres de las categorias
+levels(notaG3Mat) <-c("Suspenso", "Aprobado", "Sobresaliente")
+
+levels(notaG3Por) <-c("Suspenso", "Aprobado", "Sobresaliente")
+
+#Nota final matematicas
+table(notaG3Mat)
+
+#comprobamos en los datasets que los resultados sean correctos
+
+#Intervalo [0-10)
+length(studentMatPor[studentMatPor$g3mat>=0 & studentMatPor$g3mat<10,c("g3mat")])
+
+#Intervalo [10-17)
+length(studentMatPor[studentMatPor$g3mat>=10 & studentMatPor$g3mat<17,c("g3mat")])
+
+#Intervalo [17-maximo)
+length(studentMatPor[studentMatPor$g3mat>=17,c("g3mat")])
+
+
+#Nota final portugues
+table(notaG3Por)
+
+#comprobamos en los datasets que los resultados sean correctos
+
+#Intervalo [0-10)
+length(studentMatPor[studentMatPor$g3por>=0 & studentMatPor$g3por<10,c("g3por")])
+
+#Intervalo [10-17)
+length(studentMatPor[studentMatPor$g3por>=10 & studentMatPor$g3por<17,c("g3por")])
+
+#Intervalo [17-maximo)
+length(studentMatPor[studentMatPor$g3por>=17,c("g3por")])
+
+#Añadimos las notas finales con nuestras categorias a los datasets y
+#comprobamos que se han añadido correctamente
+studentMatPor$finalg3mat <- notaG3Mat
+
+studentMatPor$finalg3por <- notaG3Por
+
+#Nota final categorica mat
+kable(studentMatPor$finalg3mat[1:4])
+
+#Nota final categorica por
+kable(studentMatPor$finalg3por[1:4])
+
+
+
+```
+
+
+##Exploracion datos apply dplyr
+```{r}
+#Media de notas, en matematicas y en portugues
+mediaG3 <- list(g3mat=c(studentMatPor$g3mat), g3por=c(studentMatPor$g3por))
+a <- lapply(mediaG3,mean)
+a
+class(a)
+
+
+#Media de ausencias en cada nota de matematicas
+x <- tapply(studentMatPor$absencesmat,studentMatPor$g3mat,mean)
+x
+class(x)
+
+#Media de ausencias en cada nota de portugues
+y <- tapply(studentMatPor$absencespor,studentMatPor$g3por,mean)
+y
+class(y)
+
+
+#Media de horas de estudio de cada dataframe
+library(dplyr)
+studentMatPor %>% 
+        summarise(mediaStudyTimeMat=mean(studytimemat),
+                mediaStudyTimePor=mean(studytimepor))
+
+
+
+```
+
+##Analisis exploratorio, graficos
+```{r}
+
+library(gridExtra)
+library(ggplot2)
+
+#Primero veremos como influye en la nota el tiempo de viaje en portugues
+plotTraveltimePor = qplot(data=studentMatPor,x=traveltimepor ,y=g3por, xlab="traveltime", ylab="notas", color=studentMatPor$finalg3por, main="Notas-viaje Por", size = 10)
+plotTraveltimePor
+#vemos que los alumnos con notas mas altas tienen menos tiempo de viaje hasta el colegio
+
+
+plotAbsencesPor = qplot(data=studentMatPor ,x=absencespor ,y=g3por,
+                        xlab="ausencias", ylab="notas", color=studentMatPor$school,
+                        main="Notas-ausencias mat", size = 10)
+plotAbsencesPor
+
+plotAbsencesMat = qplot(data=studentMatPor ,x=absencesmat ,y=g3mat,
+                        xlab="ausencias", ylab="notas", color=studentMatPor$school,
+                        main="Notas-ausencias mat", size = 10)
+plotAbsencesMat
+#En ambos casos el numero de ausencias de MS es menor que el de GP
+
+
+
+```
+
